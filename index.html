@@ -55,8 +55,8 @@
         }
         #emulator-container {
             width: 60%;
-            max-width: 400px; /* Limit max width to keep proportions reasonable */
-            margin: 0 auto; /* Center the emulator */
+            max-width: 400px;
+            margin: 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -82,9 +82,11 @@
         }
         #gpio-pins {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-around;
             margin-top: 10px;
             width: 100%;
+            gap: 10px;
         }
         .gpio-pin {
             width: 20px;
@@ -94,13 +96,36 @@
             text-align: center;
             line-height: 20px;
             cursor: pointer;
+            font-size: 12px;
         }
         .gpio-pin.active {
             background-color: #0f0;
         }
+        #additional-io {
+            margin-top: 10px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #button-input {
+            margin: 5px 0;
+            padding: 5px 10px;
+            cursor: pointer;
+            background-color: #ddd;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }
+        #button-input.active {
+            background-color: #f00;
+        }
+        #analog-input {
+            margin: 5px 0;
+            width: 100%;
+        }
         #console-section {
-            width: 100%; /* Full width to match the layout */
-            max-width: 1200px; /* Optional: cap the max width for very wide screens */
+            width: 100%;
+            max-width: 1200px;
             margin: 10px auto 0;
             display: flex;
             flex-direction: column;
@@ -115,10 +140,18 @@
             font-size: 16px;
             font-weight: bold;
         }
+        #console-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
         #clear-console {
             padding: 5px 10px;
             font-size: 14px;
             cursor: pointer;
+        }
+        #toggle-cst {
+            font-size: 14px;
         }
         #console-container {
             flex: 1;
@@ -127,16 +160,22 @@
             background-color: #222;
             color: #fff;
             font-family: monospace;
-            font-size: 14px; /* Increased font size for better readability */
-            line-height: 1.5; /* Better line spacing */
-            white-space: pre-wrap; /* Ensure text wraps */
-            word-wrap: break-word; /* Break long words */
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
             overflow-y: auto;
             border: 1px solid #333;
             box-sizing: border-box;
         }
         #console-container div {
-            margin-bottom: 5px; /* Space between log entries */
+            margin-bottom: 5px;
+        }
+        .cst-log {
+            display: block;
+        }
+        .cst-log.hidden {
+            display: none;
         }
     </style>
 </head>
@@ -149,6 +188,8 @@
 int x = 0;
 int touchX = 0;
 int touchY = 0;
+int buttonState = 0;
+int analogValue = 0;
 
 void setup() {
     pinMode(13, OUTPUT);
@@ -167,6 +208,10 @@ void loop() {
     if (touchX > 0) {
         drawPixel(touchX, touchY, 0xFFFFFF); // White pixel on touch
     }
+    buttonState = digitalRead(15); // Read button state
+    analogValue = analogRead(34);  // Read analog input
+    setText(10, 30, toString("Button: ") + toString(buttonState));
+    setText(10, 50, toString("Analog: ") + toString(analogValue));
     setRGB(x % 255, 0, 255 - (x % 255)); // Cycle LED colors
     delay(100);
 }
@@ -181,16 +226,43 @@ void loop() {
             <h3>GPIO Pins</h3>
             <div id="gpio-pins">
                 <div class="gpio-pin" id="pin-2">2</div>
+                <div class="gpio-pin" id="pin-4">4</div>
+                <div class="gpio-pin" id="pin-5">5</div>
+                <div class="gpio-pin" id="pin-12">12</div>
                 <div class="gpio-pin" id="pin-13">13</div>
                 <div class="gpio-pin" id="pin-14">14</div>
+                <div class="gpio-pin" id="pin-15">15</div>
+                <div class="gpio-pin" id="pin-18">18</div>
+                <div class="gpio-pin" id="pin-19">19</div>
+                <div class="gpio-pin" id="pin-21">21</div>
+                <div class="gpio-pin" id="pin-22">22</div>
+                <div class="gpio-pin" id="pin-23">23</div>
+                <div class="gpio-pin" id="pin-25">25</div>
+                <div class="gpio-pin" id="pin-26">26</div>
                 <div class="gpio-pin" id="pin-27">27</div>
+                <div class="gpio-pin" id="pin-32">32</div>
+                <div class="gpio-pin" id="pin-33">33</div>
+                <div class="gpio-pin" id="pin-34">34</div>
+            </div>
+            <h3>Additional IO</h3>
+            <div id="additional-io">
+                <button id="button-input">Toggle Button (Pin 15)</button>
+                <div>
+                    <label for="analog-input">Analog Input (Pin 34): </label>
+                    <input type="range" id="analog-input" min="0" max="4095" value="0">
+                </div>
             </div>
         </div>
     </div>
     <div id="console-section">
         <div id="console-header">
             <div id="console-label">Console</div>
-            <button id="clear-console">Clear</button>
+            <div id="console-controls">
+                <label id="toggle-cst">
+                    <input type="checkbox" id="show-cst" checked> Show CST
+                </label>
+                <button id="clear-console">Clear</button>
+            </div>
         </div>
         <div id="console-container"></div>
     </div>
@@ -216,6 +288,7 @@ void loop() {
         const OUTPUT = createToken({ name: "OUTPUT", pattern: /OUTPUT/ });
         const HIGH = createToken({ name: "HIGH", pattern: /HIGH/ });
         const LOW = createToken({ name: "LOW", pattern: /LOW/ });
+        const ToString = createToken({ name: "ToString", pattern: /toString/ });
         const Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_]\w*/ });
         const NumberLiteral = createToken({ name: "NumberLiteral", pattern: /0[xX][0-9a-fA-F]+|\d+/ });
         const StringLiteral = createToken({ name: "StringLiteral", pattern: /"[^"]*"/ });
@@ -245,6 +318,7 @@ void loop() {
             OUTPUT,
             HIGH,
             LOW,
+            ToString,
             Identifier,
             NumberLiteral,
             StringLiteral,
@@ -313,13 +387,23 @@ void loop() {
                 });
 
                 $.RULE("functionCall", () => {
-                    $.CONSUME(Identifier);
-                    $.CONSUME(LParen);
-                    $.MANY_SEP({
-                        SEP: Comma,
-                        DEF: () => $.SUBRULE($.expression)
-                    });
-                    $.CONSUME(RParen);
+                    $.OR([
+                        { ALT: () => {
+                            $.CONSUME(Identifier);
+                            $.CONSUME(LParen);
+                            $.MANY_SEP({
+                                SEP: Comma,
+                                DEF: () => $.SUBRULE($.expression)
+                            });
+                            $.CONSUME(RParen);
+                        }},
+                        { ALT: () => {
+                            $.CONSUME(ToString);
+                            $.CONSUME2(LParen);
+                            $.SUBRULE2($.expression);
+                            $.CONSUME2(RParen);
+                        }}
+                    ]);
                 });
 
                 $.RULE("assignment", () => {
@@ -385,13 +469,28 @@ void loop() {
         const rgbLed = document.getElementById('rgb-led');
         const pins = {
             2: { element: document.getElementById('pin-2'), state: 0 },
+            4: { element: document.getElementById('pin-4'), state: 0 },
+            5: { element: document.getElementById('pin-5'), state: 0 },
+            12: { element: document.getElementById('pin-12'), state: 0 },
             13: { element: document.getElementById('pin-13'), state: 0 },
             14: { element: document.getElementById('pin-14'), state: 0 },
-            27: { element: document.getElementById('pin-27'), state: 0 }
+            15: { element: document.getElementById('pin-15'), state: 0 },
+            18: { element: document.getElementById('pin-18'), state: 0 },
+            19: { element: document.getElementById('pin-19'), state: 0 },
+            21: { element: document.getElementById('pin-21'), state: 0 },
+            22: { element: document.getElementById('pin-22'), state: 0 },
+            23: { element: document.getElementById('pin-23'), state: 0 },
+            25: { element: document.getElementById('pin-25'), state: 0 },
+            26: { element: document.getElementById('pin-26'), state: 0 },
+            27: { element: document.getElementById('pin-27'), state: 0 },
+            32: { element: document.getElementById('pin-32'), state: 0 },
+            33: { element: document.getElementById('pin-33'), state: 0 },
+            34: { element: document.getElementById('pin-34'), state: 0, analog: true }
         };
         let running = false;
         let variables = {};
         const consoleContainer = document.getElementById('console-container');
+        const showCstCheckbox = document.getElementById('show-cst');
 
         // Override console methods to display in custom console with better formatting
         const originalConsoleLog = console.log;
@@ -399,21 +498,22 @@ void loop() {
         console.log = function (...args) {
             const formattedArgs = args.map(arg => {
                 if (typeof arg === 'object' && arg !== null) {
-                    // Pretty-print objects with indentation
-                    return JSON.stringify(arg, null, 2).replace(/\n/g, '<br>').replace(/\s/g, '&nbsp;');
+                    return JSON.stringify(arg, null, 2).replace(/\n/g, '<br>').replace(/\s/g, ' ');
                 }
                 return arg;
             });
             const message = formattedArgs.join(' ');
-            consoleContainer.innerHTML += `<div>${message}</div>`;
+            const isCstLog = message.includes('"name": "program"') && message.includes('"children": {');
+            const logClass = isCstLog ? 'cst-log' : '';
+            const hiddenClass = isCstLog && !showCstCheckbox.checked ? ' hidden' : '';
+            consoleContainer.innerHTML += `<div class="${logClass}${hiddenClass}">${message}</div>`;
             consoleContainer.scrollTop = consoleContainer.scrollHeight;
             originalConsoleLog.apply(console, args);
         };
         console.error = function (...args) {
             const formattedArgs = args.map(arg => {
                 if (typeof arg === 'object' && arg !== null) {
-                    // Pretty-print objects with indentation
-                    return JSON.stringify(arg, null, 2).replace(/\n/g, '<br>').replace(/\s/g, '&nbsp;');
+                    return JSON.stringify(arg, null, 2).replace(/\n/g, '<br>').replace(/\s/g, ' ');
                 }
                 return arg;
             });
@@ -423,6 +523,14 @@ void loop() {
             originalConsoleError.apply(console, args);
         };
 
+        // Toggle CST visibility
+        showCstCheckbox.addEventListener('change', () => {
+            const cstLogs = consoleContainer.querySelectorAll('.cst-log');
+            cstLogs.forEach(log => {
+                log.classList.toggle('hidden', !showCstCheckbox.checked);
+            });
+        });
+
         // Clear console button
         document.getElementById('clear-console').addEventListener('click', () => {
             consoleContainer.innerHTML = '';
@@ -430,6 +538,20 @@ void loop() {
 
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, 240, 320);
+
+        // Simulate button input on pin 15
+        const buttonInput = document.getElementById('button-input');
+        buttonInput.addEventListener('click', () => {
+            pins[15].state = pins[15].state ? 0 : 1;
+            pins[15].element.classList.toggle('active', pins[15].state === 1);
+            buttonInput.classList.toggle('active', pins[15].state === 1);
+        });
+
+        // Simulate analog input on pin 34
+        const analogInput = document.getElementById('analog-input');
+        analogInput.addEventListener('input', () => {
+            pins[34].analogValue = parseInt(analogInput.value);
+        });
 
         // TFT Functions
         function drawPixel(x, y, color) {
@@ -476,11 +598,18 @@ void loop() {
             if (pins[pin]) {
                 pins[pin].state = value ? 1 : 0;
                 pins[pin].element.classList.toggle('active', pins[pin].state === 1);
+                if (pin === 15) {
+                    buttonInput.classList.toggle('active', pins[pin].state === 1);
+                }
             }
         }
 
         function digitalRead(pin) {
             return pins[pin] ? pins[pin].state : 0;
+        }
+
+        function analogRead(pin) {
+            return pins[pin] && pins[pin].analog ? (pins[pin].analogValue || 0) : 0;
         }
 
         // Touchscreen Emulation
@@ -500,6 +629,11 @@ void loop() {
 
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // String conversion function
+        function toString(value) {
+            return String(value);
         }
 
         // AST Execution
@@ -534,19 +668,28 @@ void loop() {
             for (const stmt of statements) {
                 if (stmt.children.functionCall) {
                     const call = stmt.children.functionCall[0];
-                    const name = call.children.Identifier[0].image;
-                    const args = call.children.expression || [];
-                    const evalArgs = args.map(expr => evaluateExpression(expr));
+                    let name, args;
 
-                    if (name === 'pinMode') pinMode(evalArgs[0], evalArgs[1]);
-                    else if (name === 'digitalWrite') digitalWrite(evalArgs[0], evalArgs[1]);
-                    else if (name === 'digitalRead') return digitalRead(evalArgs[0]);
-                    else if (name === 'drawPixel') drawPixel(evalArgs[0], evalArgs[1], evalArgs[2]);
-                    else if (name === 'drawLine') drawLine(evalArgs[0], evalArgs[1], evalArgs[2], evalArgs[3], evalArgs[4]);
-                    else if (name === 'fillRect') fillRect(evalArgs[0], evalArgs[1], evalArgs[2], evalArgs[3], evalArgs[4]);
-                    else if (name === 'setText') setText(evalArgs[0], evalArgs[1], evalArgs[2]);
-                    else if (name === 'setRGB') setRGB(evalArgs[0], evalArgs[1], evalArgs[2]);
-                    else if (name === 'delay') await delay(evalArgs[0]);
+                    // Check if the function call is for toString or a regular identifier
+                    if (call.children.ToString) {
+                        name = 'toString';
+                        args = call.children.expression ? [evaluateExpression(call.children.expression[0])] : [];
+                    } else {
+                        name = call.children.Identifier[0].image;
+                        args = call.children.expression ? call.children.expression.map(expr => evaluateExpression(expr)) : [];
+                    }
+
+                    if (name === 'pinMode') pinMode(args[0], args[1]);
+                    else if (name === 'digitalWrite') digitalWrite(args[0], args[1]);
+                    else if (name === 'digitalRead') return digitalRead(args[0]);
+                    else if (name === 'analogRead') return analogRead(args[0]);
+                    else if (name === 'drawPixel') drawPixel(args[0], args[1], args[2]);
+                    else if (name === 'drawLine') drawLine(args[0], args[1], args[2], args[3], args[4]);
+                    else if (name === 'fillRect') fillRect(args[0], args[1], args[2], args[3], args[4]);
+                    else if (name === 'setText') setText(args[0], args[1], args[2]);
+                    else if (name === 'setRGB') setRGB(args[0], args[1], args[2]);
+                    else if (name === 'delay') await delay(args[0]);
+                    else if (name === 'toString') return toString(args[0]);
                 } else if (stmt.children.assignment) {
                     const assign = stmt.children.assignment[0];
                     const name = assign.children.Identifier[0].image;
@@ -579,11 +722,23 @@ void loop() {
                 } else if (term.children.LOW) {
                     value = 0;
                 } else if (term.children.StringLiteral) {
-                    value = term.children.StringLiteral[0].image;
+                    value = term.children.StringLiteral[0].image.replace(/"/g, '');
                 } else if (term.children.functionCall) {
                     const call = term.children.functionCall[0];
-                    if (call.children.Identifier[0].image === 'digitalRead') {
-                        value = digitalRead(evaluateExpression(call.children.expression[0]));
+                    let name, args;
+                    if (call.children.ToString) {
+                        name = 'toString';
+                        args = call.children.expression ? [evaluateExpression(call.children.expression[0])] : [];
+                    } else {
+                        name = call.children.Identifier[0].image;
+                        args = call.children.expression ? call.children.expression.map(expr => evaluateExpression(expr)) : [];
+                    }
+                    if (name === 'digitalRead') {
+                        value = digitalRead(args[0]);
+                    } else if (name === 'analogRead') {
+                        value = analogRead(args[0]);
+                    } else if (name === 'toString') {
+                        value = toString(args[0]);
                     }
                 } else if (term.children.Not) {
                     value = !evaluateExpression(term.children.term[0]);
@@ -592,24 +747,31 @@ void loop() {
                 }
             }
 
-            if (expr.children.Plus && expr.children.Plus.length > 0) {
-                const rightTerm = expr.children.term[1];
-                value += evaluateExpression({ children: { term: [rightTerm] } });
-            } else if (expr.children.Minus && expr.children.Minus.length > 0) {
-                const rightTerm = expr.children.term[1];
-                value -= evaluateExpression({ children: { term: [rightTerm] } });
-            } else if (expr.children.Multiply && expr.children.Multiply.length > 0) {
-                const rightTerm = expr.children.term[1];
-                value *= evaluateExpression({ children: { term: [rightTerm] } });
-            } else if (expr.children.Divide && expr.children.Divide.length > 0) {
-                const rightTerm = expr.children.term[1];
-                value /= evaluateExpression({ children: { term: [rightTerm] } });
-            } else if (expr.children.Mod && expr.children.Mod.length > 0) {
-                const rightTerm = expr.children.term[1];
-                value %= evaluateExpression({ children: { term: [rightTerm] } });
-            } else if (expr.children.Greater && expr.children.Greater.length > 0) {
-                const rightTerm = expr.children.term[1];
-                value = value > evaluateExpression({ children: { term: [rightTerm] } }) ? 1 : 0;
+            // Handle binary operations
+            const operators = expr.children.Plus || expr.children.Minus || expr.children.Multiply || 
+                            expr.children.Divide || expr.children.Mod || expr.children.Greater || [];
+            if (operators.length > 0) {
+                for (let i = 0; i < operators.length; i++) {
+                    const rightTerm = expr.children.term[i + 1];
+                    const rightValue = evaluateExpression({ children: { term: [rightTerm] } });
+                    if (operators[i].tokenType.name === 'Plus') {
+                        if (typeof value === 'string' || typeof rightValue === 'string') {
+                            value = String(value) + String(rightValue);
+                        } else {
+                            value += rightValue;
+                        }
+                    } else if (operators[i].tokenType.name === 'Minus') {
+                        value -= rightValue;
+                    } else if (operators[i].tokenType.name === 'Multiply') {
+                        value *= rightValue;
+                    } else if (operators[i].tokenType.name === 'Divide') {
+                        value /= rightValue;
+                    } else if (operators[i].tokenType.name === 'Mod') {
+                        value %= rightValue;
+                    } else if (operators[i].tokenType.name === 'Greater') {
+                        value = value > rightValue ? 1 : 0;
+                    }
+                }
             }
 
             return value || 0;
@@ -618,7 +780,7 @@ void loop() {
         // Run Code
         document.getElementById('run-button').addEventListener('click', () => {
             running = false;
-            consoleContainer.innerHTML = ''; // Clear console on run
+            consoleContainer.innerHTML = '';
             setTimeout(() => {
                 const code = codeEditor.getValue();
                 const lexResult = CLexer.tokenize(code);
