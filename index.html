@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-2432S028R Simulator</title>
+    <script src="https://unpkg.com/chevrotain@10.5.0/lib/chevrotain.min.js"></script>
+    <!-- CodeMirror for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #main-container {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+        }
+        #code-container {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+        }
+        #code-label {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #code-editor {
+            flex: 1;
+            border: 1px solid #333;
+        }
+        .CodeMirror {
+            height: 100% !important;
+            font-size: 14px;
+        }
+        #run-button {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #emulator-container {
+            width: 60%;
+            max-width: 400px; /* Limit max width to keep proportions reasonable */
+            margin: 0 auto; /* Center the emulator */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffeb3b;
+            padding: 20px;
+            border: 2px solid #333;
+            border-radius: 10px;
+        }
+        #tft-screen {
+            width: 240px;
+            height: 320px;
+            background-color: #000;
+            border: 2px solid #000;
+            margin: 0 auto;
+            cursor: crosshair;
+        }
+        #rgb-led {
+            width: 20px;
+            height: 20px;
+            background-color: #000;
+            border-radius: 50%;
+            margin: 10px auto;
+        }
+        #gpio-pins {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .gpio-pin {
+            width: 20px;
+            height: 20px;
+            background-color: #ccc;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            cursor: pointer;
+        }
+        .gpio-pin.active {
+            background-color: #0f0;
+        }
+        #console-section {
+            width: 100%; /* Full width to match the layout */
+            max-width: 1200px; /* Optional: cap the max width for very wide screens */
+            margin: 10px auto 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        #console-label {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        #clear-console {
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        #console-container {
+            flex: 1;
+            height: 16vh;
+            padding: 10px;
+            background-color: #222;
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px; /* Increased font size for better readability */
+            line-height: 1.5; /* Better line spacing */
+            white-space: pre-wrap; /* Ensure text wraps */
+            word-wrap: break-word; /* Break long words */
+            overflow-y: auto;
+            border: 1px solid #333;
+            box-sizing: border-box;
+        }
+        #console-container div {
+            margin-bottom: 5px; /* Space between log entries */
+        }
+    </style>
+</head>
+<body>
+    <h1>ESP32-2432S028R Emulator</h1>
+    <div id="main-container">
+        <div id="code-container">
+            <div id="code-label">Code</div>
+            <textarea id="code-editor">
+int x = 0;
+int touchX = 0;
+int touchY = 0;
+
+void setup() {
+    pinMode(13, OUTPUT);
+    digitalWrite(13, HIGH);
+    drawPixel(120, 160, 0xFF0000); // Red pixel
+    drawLine(0, 0, 239, 319, 0x0000FF); // Blue diagonal
+    fillRect(50, 50, 100, 100, 0xFFFF00); // Yellow square
+    setText(10, 10, "Hello ESP32!");
+    setRGB(255, 0, 0); // Red LED
+}
+
+void loop() {
+    digitalWrite(13, !digitalRead(13));
+    x = x + 1;
+    drawPixel(x % 240, 160, 0x00FF00); // Moving green pixel
+    if (touchX > 0) {
+        drawPixel(touchX, touchY, 0xFFFFFF); // White pixel on touch
+    }
+    setRGB(x % 255, 0, 255 - (x % 255)); // Cycle LED colors
+    delay(100);
+}
+            </textarea>
+            <button id="run-button">Run Code</button>
+        </div>
+        <div id="emulator-container">
+            <h2>TFT Screen (240x320)</h2>
+            <canvas id="tft-screen" width="240" height="320"></canvas>
+            <h3>RGB LED</h3>
+            <div id="rgb-led"></div>
+            <h3>GPIO Pins</h3>
+            <div id="gpio-pins">
+                <div class="gpio-pin" id="pin-2">2</div>
+                <div class="gpio-pin" id="pin-13">13</div>
+                <div class="gpio-pin" id="pin-14">14</div>
+                <div class="gpio-pin" id="pin-27">27</div>
+            </div>
+        </div>
+    </div>
+    <div id="console-section">
+        <div id="console-header">
+            <div id="console-label">Console</div>
+            <button id="clear-console">Clear</button>
+        </div>
+        <div id="console-container"></div>
+    </div>
+
+    <script>
+        const { createToken, Lexer, CstParser } = chevrotain;
+
+        // Initialize CodeMirror
+        const codeEditorElement = document.getElementById('code-editor');
+        const codeEditor = CodeMirror.fromTextArea(codeEditorElement, {
+            mode: 'text/x-csrc',
+            lineNumbers: true,
+            theme: 'dracula',
+            indentUnit: 4,
+            tabSize: 4,
+            indentWithTabs: true
+        });
+
+        // Lexer Tokens
+        const Int = createToken({ name: "Int", pattern: /int/ });
+        const Void = createToken({ name: "Void", pattern: /void/ });
+        const If = createToken({ name: "If", pattern: /if/ });
+        const OUTPUT = createToken({ name: "OUTPUT", pattern: /OUTPUT/ });
+        const HIGH = createToken({ name: "HIGH", pattern: /HIGH/ });
+        const LOW = createToken({ name: "LOW", pattern: /LOW/ });
+        const Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_]\w*/ });
+        const NumberLiteral = createToken({ name: "NumberLiteral", pattern: /0[xX][0-9a-fA-F]+|\d+/ });
+        const StringLiteral = createToken({ name: "StringLiteral", pattern: /"[^"]*"/ });
+        const LParen = createToken({ name: "LParen", pattern: /\(/ });
+        const RParen = createToken({ name: "RParen", pattern: /\)/ });
+        const LBrace = createToken({ name: "LBrace", pattern: /\{/ });
+        const RBrace = createToken({ name: "RBrace", pattern: /\}/ });
+        const Semicolon = createToken({ name: "Semicolon", pattern: /;/ });
+        const Comma = createToken({ name: "Comma", pattern: /,/ });
+        const Assign = createToken({ name: "Assign", pattern: /=/ });
+        const Plus = createToken({ name: "Plus", pattern: /\+/ });
+        const Minus = createToken({ name: "Minus", pattern: /\-/ });
+        const Multiply = createToken({ name: "Multiply", pattern: /\*/ });
+        const Divide = createToken({ name: "Divide", pattern: /\// });
+        const Mod = createToken({ name: "Mod", pattern: /%/ });
+        const Greater = createToken({ name: "Greater", pattern: />/ });
+        const Not = createToken({ name: "Not", pattern: /!/ });
+        const Comment = createToken({ name: "Comment", pattern: /\/\/[^\n]*/, group: Lexer.SKIPPED });
+        const WhiteSpace = createToken({ name: "WhiteSpace", pattern: /\s+/, group: Lexer.SKIPPED });
+
+        const allTokens = [
+            WhiteSpace,
+            Comment,
+            Int,
+            Void,
+            If,
+            OUTPUT,
+            HIGH,
+            LOW,
+            Identifier,
+            NumberLiteral,
+            StringLiteral,
+            LParen,
+            RParen,
+            LBrace,
+            RBrace,
+            Semicolon,
+            Comma,
+            Assign,
+            Plus,
+            Minus,
+            Multiply,
+            Divide,
+            Mod,
+            Greater,
+            Not
+        ];
+        const CLexer = new Lexer(allTokens);
+
+        // Parser
+        class CParser extends CstParser {
+            constructor() {
+                super(allTokens);
+                const $ = this;
+
+                $.RULE("program", () => {
+                    $.MANY(() => {
+                        $.OR([
+                            { ALT: () => $.SUBRULE($.variableDeclaration) },
+                            { ALT: () => $.SUBRULE($.functionDefinition) }
+                        ]);
+                    });
+                });
+
+                $.RULE("variableDeclaration", () => {
+                    $.CONSUME(Int);
+                    $.CONSUME(Identifier);
+                    $.CONSUME(Assign);
+                    $.SUBRULE($.expression);
+                    $.CONSUME(Semicolon);
+                });
+
+                $.RULE("functionDefinition", () => {
+                    $.CONSUME(Void);
+                    $.CONSUME(Identifier);
+                    $.CONSUME(LParen);
+                    $.CONSUME(RParen);
+                    $.CONSUME(LBrace);
+                    $.MANY(() => $.SUBRULE($.statement));
+                    $.CONSUME(RBrace);
+                });
+
+                $.RULE("statement", () => {
+                    $.OR([
+                        { ALT: () => {
+                            $.SUBRULE($.functionCall);
+                            $.CONSUME1(Semicolon);
+                        }},
+                        { ALT: () => {
+                            $.SUBRULE($.assignment);
+                            $.CONSUME2(Semicolon);
+                        }},
+                        { ALT: () => $.SUBRULE($.ifStatement) }
+                    ]);
+                });
+
+                $.RULE("functionCall", () => {
+                    $.CONSUME(Identifier);
+                    $.CONSUME(LParen);
+                    $.MANY_SEP({
+                        SEP: Comma,
+                        DEF: () => $.SUBRULE($.expression)
+                    });
+                    $.CONSUME(RParen);
+                });
+
+                $.RULE("assignment", () => {
+                    $.CONSUME(Identifier);
+                    $.CONSUME(Assign);
+                    $.SUBRULE($.expression);
+                });
+
+                $.RULE("ifStatement", () => {
+                    $.CONSUME(If);
+                    $.CONSUME(LParen);
+                    $.SUBRULE($.expression);
+                    $.CONSUME(RParen);
+                    $.CONSUME(LBrace);
+                    $.MANY(() => $.SUBRULE2($.statement));
+                    $.CONSUME(RBrace);
+                });
+
+                $.RULE("expression", () => {
+                    $.SUBRULE($.term);
+                    $.MANY(() => {
+                        $.OR([
+                            { ALT: () => { $.CONSUME(Plus); $.SUBRULE2($.term); } },
+                            { ALT: () => { $.CONSUME(Minus); $.SUBRULE3($.term); } },
+                            { ALT: () => { $.CONSUME(Multiply); $.SUBRULE4($.term); } },
+                            { ALT: () => { $.CONSUME(Divide); $.SUBRULE5($.term); } },
+                            { ALT: () => { $.CONSUME(Mod); $.SUBRULE6($.term); } },
+                            { ALT: () => { $.CONSUME(Greater); $.SUBRULE7($.term); } }
+                        ]);
+                    });
+                });
+
+                $.RULE("term", () => {
+                    $.OR([
+                        { ALT: () => $.SUBRULE($.functionCall) },
+                        { ALT: () => $.CONSUME(NumberLiteral) },
+                        { ALT: () => $.CONSUME(Identifier) },
+                        { ALT: () => $.CONSUME(OUTPUT) },
+                        { ALT: () => $.CONSUME(HIGH) },
+                        { ALT: () => $.CONSUME(LOW) },
+                        { ALT: () => $.CONSUME(StringLiteral) },
+                        { ALT: () => {
+                            $.CONSUME(Not);
+                            $.SUBRULE($.term);
+                        }},
+                        { ALT: () => {
+                            $.CONSUME(LParen);
+                            $.SUBRULE2($.expression);
+                            $.CONSUME(RParen);
+                        }}
+                    ]);
+                });
+
+                this.performSelfAnalysis();
+            }
+        }
+
+        const parser = new CParser();
+
+        // Emulator Core
+        const canvas = document.getElementById('tft-screen');
+        const ctx = canvas.getContext('2d');
+        const rgbLed = document.getElementById('rgb-led');
+        const pins = {
+            2: { element: document.getElementById('pin-2'), state: 0 },
+            13: { element: document.getElementById('pin-13'), state: 0 },
+            14: { element: document.getElementById('pin-14'), state: 0 },
+            27: { element: document.getElementById('pin-27'), state: 0 }
+        };
+        let running = false;
+        let variables = {};
+        const consoleContainer = document.getElementById('console-container');
+
+        // Override console methods to display in custom console with better formatting
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        console.log = function (...args) {
+            const formattedArgs = args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    // Pretty-print objects with indentation
+                    return JSON.stringify(arg, null, 2).replace(/\n/g, '<br>').replace(/\s/g, '&nbsp;');
+                }
+                return arg;
+            });
+            const message = formattedArgs.join(' ');
+            consoleContainer.innerHTML += `<div>${message}</div>`;
+            consoleContainer.scrollTop = consoleContainer.scrollHeight;
+            originalConsoleLog.apply(console, args);
+        };
+        console.error = function (...args) {
+            const formattedArgs = args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    // Pretty-print objects with indentation
+                    return JSON.stringify(arg, null, 2).replace(/\n/g, '<br>').replace(/\s/g, '&nbsp;');
+                }
+                return arg;
+            });
+            const message = formattedArgs.join(' ');
+            consoleContainer.innerHTML += `<div style="color: #ff5555">${message}</div>`;
+            consoleContainer.scrollTop = consoleContainer.scrollHeight;
+            originalConsoleError.apply(console, args);
+        };
+
+        // Clear console button
+        document.getElementById('clear-console').addEventListener('click', () => {
+            consoleContainer.innerHTML = '';
+        });
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 240, 320);
+
+        // TFT Functions
+        function drawPixel(x, y, color) {
+            if (x >= 0 && x < 240 && y >= 0 && y < 320) {
+                const r = (color >> 16) & 0xFF;
+                const g = (color >> 8) & 0xFF;
+                const b = color & 0xFF;
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+
+        function drawLine(x1, y1, x2, y2, color) {
+            const r = (color >> 16) & 0xFF;
+            const g = (color >> 8) & 0xFF;
+            const b = color & 0xFF;
+            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+
+        function fillRect(x, y, w, h, color) {
+            const r = (color >> 16) & 0xFF;
+            const g = (color >> 8) & 0xFF;
+            const b = color & 0xFF;
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        function setText(x, y, text) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '16px Arial';
+            ctx.fillText(text.replace(/"/g, ''), x, y + 16);
+        }
+
+        // GPIO Functions
+        function pinMode(pin, mode) {
+            console.log(`pinMode(${pin}, ${mode})`);
+        }
+
+        function digitalWrite(pin, value) {
+            if (pins[pin]) {
+                pins[pin].state = value ? 1 : 0;
+                pins[pin].element.classList.toggle('active', pins[pin].state === 1);
+            }
+        }
+
+        function digitalRead(pin) {
+            return pins[pin] ? pins[pin].state : 0;
+        }
+
+        // Touchscreen Emulation
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touchX = Math.floor(e.clientX - rect.left);
+            const touchY = Math.floor(e.clientY - rect.top);
+            variables['touchX'] = touchX;
+            variables['touchY'] = touchY;
+            console.log(`Touch at (${touchX}, ${touchY})`);
+        });
+
+        // RGB LED Control
+        function setRGB(r, g, b) {
+            rgbLed.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // AST Execution
+        async function executeCst(cst) {
+            if (!cst || !cst.children) {
+                console.error('Invalid CST: No program content found');
+                return;
+            }
+
+            const program = cst;
+            let setupNode, loopNode;
+
+            for (const node of program.children.variableDeclaration || []) {
+                const name = node.children.Identifier[0].image;
+                const value = evaluateExpression(node.children.expression[0]);
+                variables[name] = value;
+            }
+
+            for (const func of program.children.functionDefinition || []) {
+                const name = func.children.Identifier[0].image;
+                if (name === 'setup') setupNode = func;
+                if (name === 'loop') loopNode = func;
+            }
+
+            if (setupNode) await executeStatements(setupNode.children.statement || []);
+            while (running && loopNode) {
+                await executeStatements(loopNode.children.statement || []);
+            }
+        }
+
+        async function executeStatements(statements) {
+            for (const stmt of statements) {
+                if (stmt.children.functionCall) {
+                    const call = stmt.children.functionCall[0];
+                    const name = call.children.Identifier[0].image;
+                    const args = call.children.expression || [];
+                    const evalArgs = args.map(expr => evaluateExpression(expr));
+
+                    if (name === 'pinMode') pinMode(evalArgs[0], evalArgs[1]);
+                    else if (name === 'digitalWrite') digitalWrite(evalArgs[0], evalArgs[1]);
+                    else if (name === 'digitalRead') return digitalRead(evalArgs[0]);
+                    else if (name === 'drawPixel') drawPixel(evalArgs[0], evalArgs[1], evalArgs[2]);
+                    else if (name === 'drawLine') drawLine(evalArgs[0], evalArgs[1], evalArgs[2], evalArgs[3], evalArgs[4]);
+                    else if (name === 'fillRect') fillRect(evalArgs[0], evalArgs[1], evalArgs[2], evalArgs[3], evalArgs[4]);
+                    else if (name === 'setText') setText(evalArgs[0], evalArgs[1], evalArgs[2]);
+                    else if (name === 'setRGB') setRGB(evalArgs[0], evalArgs[1], evalArgs[2]);
+                    else if (name === 'delay') await delay(evalArgs[0]);
+                } else if (stmt.children.assignment) {
+                    const assign = stmt.children.assignment[0];
+                    const name = assign.children.Identifier[0].image;
+                    const value = evaluateExpression(assign.children.expression[0]);
+                    variables[name] = value;
+                } else if (stmt.children.ifStatement) {
+                    const ifStmt = stmt.children.ifStatement[0];
+                    const condition = evaluateExpression(ifStmt.children.expression[0]);
+                    if (condition) {
+                        await executeStatements(ifStmt.children.statement || []);
+                    }
+                }
+            }
+        }
+
+        function evaluateExpression(expr) {
+            let value;
+            if (expr.children.term && expr.children.term.length > 0) {
+                const term = expr.children.term[0];
+                if (term.children.NumberLiteral) {
+                    const num = term.children.NumberLiteral[0].image;
+                    value = parseInt(num, num.startsWith('0x') ? 16 : 10);
+                } else if (term.children.Identifier) {
+                    const id = term.children.Identifier[0].image;
+                    value = variables[id] || 0;
+                } else if (term.children.OUTPUT) {
+                    value = 'OUTPUT';
+                } else if (term.children.HIGH) {
+                    value = 1;
+                } else if (term.children.LOW) {
+                    value = 0;
+                } else if (term.children.StringLiteral) {
+                    value = term.children.StringLiteral[0].image;
+                } else if (term.children.functionCall) {
+                    const call = term.children.functionCall[0];
+                    if (call.children.Identifier[0].image === 'digitalRead') {
+                        value = digitalRead(evaluateExpression(call.children.expression[0]));
+                    }
+                } else if (term.children.Not) {
+                    value = !evaluateExpression(term.children.term[0]);
+                } else if (term.children.LParen) {
+                    value = evaluateExpression(term.children.expression[0]);
+                }
+            }
+
+            if (expr.children.Plus && expr.children.Plus.length > 0) {
+                const rightTerm = expr.children.term[1];
+                value += evaluateExpression({ children: { term: [rightTerm] } });
+            } else if (expr.children.Minus && expr.children.Minus.length > 0) {
+                const rightTerm = expr.children.term[1];
+                value -= evaluateExpression({ children: { term: [rightTerm] } });
+            } else if (expr.children.Multiply && expr.children.Multiply.length > 0) {
+                const rightTerm = expr.children.term[1];
+                value *= evaluateExpression({ children: { term: [rightTerm] } });
+            } else if (expr.children.Divide && expr.children.Divide.length > 0) {
+                const rightTerm = expr.children.term[1];
+                value /= evaluateExpression({ children: { term: [rightTerm] } });
+            } else if (expr.children.Mod && expr.children.Mod.length > 0) {
+                const rightTerm = expr.children.term[1];
+                value %= evaluateExpression({ children: { term: [rightTerm] } });
+            } else if (expr.children.Greater && expr.children.Greater.length > 0) {
+                const rightTerm = expr.children.term[1];
+                value = value > evaluateExpression({ children: { term: [rightTerm] } }) ? 1 : 0;
+            }
+
+            return value || 0;
+        }
+
+        // Run Code
+        document.getElementById('run-button').addEventListener('click', () => {
+            running = false;
+            consoleContainer.innerHTML = ''; // Clear console on run
+            setTimeout(() => {
+                const code = codeEditor.getValue();
+                const lexResult = CLexer.tokenize(code);
+                if (lexResult.errors.length > 0) {
+                    console.error('Lexing errors:', lexResult.errors);
+                    return;
+                }
+
+                parser.input = lexResult.tokens;
+                const cst = parser.program();
+                if (parser.errors.length > 0) {
+                    console.error('Parsing errors:', parser.errors);
+                    return;
+                }
+
+                console.log('CST:', cst);
+                running = true;
+                executeCst(cst).catch(err => console.error('Execution error:', err));
+            }, 100);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            running = false;
+        });
+    </script>
+</body>
+</html>
