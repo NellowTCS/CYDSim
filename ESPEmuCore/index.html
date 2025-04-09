@@ -3,6 +3,7 @@
 <head>
   <title>ESP32 Emulator</title>
   <style>
+    body { margin: 0; padding: 0; }
     canvas { border: 1px solid black; background: black; }
     textarea { width: 600px; height: 400px; }
   </style>
@@ -10,7 +11,7 @@
 <body>
   <canvas id="screen" width="320" height="240"></canvas><br>
   <textarea id="code">
-int x = 50;
+int x = 0;
 int y = 50;
 int dx = 1;
 while (1) {
@@ -25,7 +26,9 @@ while (1) {
     if (x > 200) {
         dx = -dx;
     }
-
+    if (x < 0) {
+        dx = -dx;
+    }
 }
   </textarea><br>
   <button onclick="compileAndRun()">Compile and Run Code</button>
@@ -39,7 +42,6 @@ while (1) {
     const ctx = canvas.getContext('2d');
     const emulator = new ESP32Emulator(ctx);
 
-    
     window.compileAndRun = function() {
       const code = document.getElementById('code').value;
       const result = emulator.compileCode(code);
