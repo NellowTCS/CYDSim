@@ -314,7 +314,7 @@ export class ESP32Emulator {
     this.running = true;
     const emulate = () => {
       if (this.running) {
-        for (let i = 0; i < 300; i++) {
+        for (let i = 0; i < 280; i++) {
           this.step();
         }
         requestAnimationFrame(emulate);
